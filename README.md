@@ -14,27 +14,34 @@ This is a computationally heavy task, and so running output commands in
 parallel is recommended.
 
    input_options
+
    -i, --input    The 'raw data' file from 23 and me, which has four tab
                   separated columns: rsid, chromosome, position, genotype
+
    -o, --output   The prefix for the output .gen files (default is the
                   input name)
+
    -s, --sex      The sex of the subject, either male (m) or female (f). If
                   omitted a guess will be made based on presence of Y
                   chromosome sites
 
    impute_options:
+
    -r, --run [threads]
                   Directly execute the imputation, but note this requires
                   a lot of memory and CPU time. Optionally supply an
                   integer number of jobs to simultaneously
                   execute. This should be <= number of cores, but this is
                   not checked
+
    -p, --print    Print the imputation commands to STDOUT rather than
                   executing them - default behaviour
+
    -w, --write    Write to commands to shell scripts, for execution later
                   by a job scheduling system
 
    other
+
    -h, --help     Displays this help message
 
 For example:
