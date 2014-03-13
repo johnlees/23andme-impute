@@ -3,6 +3,10 @@
 use strict;
 use warnings;
 
+use Getopt::Long;
+use IO::Zlib;
+use POSIX;
+
 use twentythree;
 
 # A wrapper script for the whole imputation
@@ -31,6 +35,8 @@ parallel is recommended.
    <input_options>
    -i, --input    The 'raw data' file from 23 and me, which has four tab
                   separated columns: rsid, chromosome, position, genotype
+   -g, --ref      Path to the folder that contains the imputation reference
+                  haplotype and legend files. Default is current directory
    -o, --output   The prefix for the output .gen files (default is the
                   input name)
    -s, --sex      The sex of the subject, either male (m) or female (f). If
@@ -55,29 +61,141 @@ parallel is recommended.
 END
 
 #****************************************************************************************#
+#* Subs                                                                                 *#
+#****************************************************************************************#
+sub chrom_jobs($)
+{
+   my ($chrom_file) = @_;
+
+   my $last_line;
+
+   # Reading through zipped legend files prohibilitvely slow
+   #tie (*LEGEND, 'IO::Zlib', $chrom_file, "rb") or die("Could not open $chrom_file\n");
+   #while ($legend_line = <LEGEND>)
+   #{
+   #   # Get to end of file
+   #}
+
+   open(LEGEND, "gzip -dc $chrom_file |") or die("Could not open $chrom_file\n");
+   while (my $legend_line = <LEGEND>)
+   {
+      # Get to end of file
+      $last_line = $legend_line if eof;
+   }
+
+   my ($rsid, $position, $a0, $a1, $var_type, $seq_type, @pop_maf) = split(/\s+/, $last_line);
+   my $num_jobs = ceil($position / $twentythree::chunk_length);
+
+   close LEGEND;
+
+   return($num_jobs);
+
+}
+
+#****************************************************************************************#
 #* Main                                                                                 *#
 #****************************************************************************************#
 
-#* Gets input parameters
-my ($input_file, $output_prefix, $sex, $run, $print, $write, $help);
+#* gets input parameters
+my ($input_file, $output_prefix, $ref_location, $sex, $run, $print, $write, $help);
 GetOptions ("input|i=s"  => \$input_file,
             "output|o=s" => \$output_prefix,
             "sex|s=s"  => \$sex,
-            "run|r:i" => \$run,
+            "ref|g=s" =>\$ref_location,
+            "run|r:i" => \$run, # optional number of threads
             "print|p" => \$print,
             "write|w" => \$write,
             "help|h"     => \$help
 		   ) or die($help_message);
 
-# Check necessary files exist
+# check necessary files exist
 if (defined($help))
 {
    print $help_message;
 }
+elsif (!defined($input_file))
+{
+   print "Input file not specified\n\n";
+   print $help_message;
+}
 else
 {
-   # Impute here
+   # impute here
+   my %num_jobs;
+   my @chr_names;
+   $sex = twentythree::format_convert($input_file, $output_prefix, $sex);
 
+   if (!defined($ref_location))
+   {
+      $ref_location = "./";
+   }
+
+   print "Getting chromosome lengths: ";
+   # Get list of files to process
+   for (my $i = 1; $i<=22; $i++)
+   {
+      push(@chr_names, $i);
+      print "$i ";
+
+      # Also calculate number of jobs
+      my $legend_name = "$ref_location$twentythree::legend_prefix$i$twentythree::legend_suffix";
+      $num_jobs{$i} = chrom_jobs("$legend_name");
+   }
+
+   if ($twentythree::sex_table{$sex} eq "female")
+   {
+      push(@chr_names, "X");
+      print "X\n";
+
+      my $legend_name = $ref_location . $twentythree::legend_prefix . "X_nonPAR" . $twentythree::legend_suffix;
+      $num_jobs{"X"} = chrom_jobs("$legend_name");
+
+      # Create sample_g file
+      twentythree::print_sample($sex);
+   }
+   else
+   {
+      push(@chr_names, "Y");
+      print "Y\n";
+
+      my $legend_name = $ref_location . $twentythree::legend_prefix . "Y" . $twentythree::legend_suffix;
+      $num_jobs{"Y"} = chrom_jobs("$legend_name");
+   }
+
+   # Now get a list of impute2 commands
+   my (@impute_commands, @cat_commands, @cat_hap_commands);
+   foreach my $chr_name (@chr_names)
+   {
+
+      my $cat_command = "cat ";
+      my $cat_hap_command = "cat ";
+
+      for (my $i = 1; $i<= $num_jobs{$chr_name}; $i++)
+      {
+         my $impute_command;
+         if ($chr_name eq "X")
+         {
+            $impute_command = "impute2 -chrX -m $ref_location$twentythree::map_prefix" . $chr_name . "$twentythree::map_suffix -h $ref_location$twentythree::haplotype_prefix" . $chr_name . "$twentythree::haplotype_suffix -l $ref_location$twentythree::legend_prefix" . $chr_name . "$twentythree::legend_suffix -g $output_prefix.chr$chr_name.gen -sample_g $twentythree::sample_g_name -int " . ($i-1)*5 . "e6 " . $i*5 . "e6 -Ne $twentythree::eff_pop -o $twentythree::impute2_prefix$chr_name.$i -phase -allow_large_regions";
+         }
+         else
+         {
+            $impute_command = "impute2 -m $ref_location$twentythree::map_prefix" . $chr_name . "$twentythree::map_suffix -h $ref_location$twentythree::haplotype_prefix" . $chr_name . "$twentythree::haplotype_suffix -l $ref_location$twentythree::legend_prefix" . $chr_name . "$twentythree::legend_suffix -g $output_prefix.chr$chr_name.gen -int " . ($i-1)*5 . "e6 " . $i*5 . "e6 -Ne $twentythree::eff_pop -o $twentythree::impute2_prefix$chr_name.$i -phase -allow_large_regions";
+
+         }
+
+         push(@impute_commands, $impute_command);
+
+         $cat_command .= "$twentythree::impute2_prefix$chr_name.$i ";
+         $cat_hap_command .= "$twentythree::impute2_prefix$chr_name.$i.haps ";
+      }
+
+      $cat_command .= "> $output_prefix.$chr_name.gen";
+      $cat_hap_command .= "> $output_prefix.$chr_name.phased.haps";
+      push(@cat_commands, $cat_command);
+      push(@cat_hap_commands, $cat_hap_command);
+   }
+
+   # Output or print commands in requested format
 }
 
 exit(0);

@@ -9,9 +9,29 @@ use warnings;
 use IO::Handle;
 STDOUT->autoflush(1);
 
+#
+# Globals
+#
 our %sex_table = ("0" => "male",
                  "1" => "female",
                  "2" => "unknown");
+
+our $legend_prefix = "ALL_1000G_phase1integrated_v3_chr";
+our $legend_suffix = "_impute.legend.gz";
+our $haplotype_prefix = "ALL_1000G_phase1integrated_v3_chr";
+our $haplotype_suffix = "_impute.hap.gz";
+our $map_prefix = "genetic_map_chr";
+our $map_suffix = "_combined_b37.txt";
+
+our $impute2_prefix = "tmp_impute2.chr";
+our $sample_g_name = "tmp_X.sample";
+
+our $chunk_length = 5000000;
+our $eff_pop = 20000;
+
+#
+# Subs
+#
 
 # Converts from 23andme raw data to .gen files for each chromosome, outputting
 # status to stdout
@@ -84,7 +104,7 @@ sub twentythree_to_gen($$$)
    {
       my $current_chromosome = 0;
       my $i = 1;
-      print("Printing chromosome: ");
+      print("Printing chromosome:        ");
 
       open(INPUT, $input_file) || die ("Could not open $input_file for reading\n");
 
@@ -185,6 +205,29 @@ sub twentythree_to_gen($$$)
 
    return($sex);
 
+}
+
+sub print_sample($)
+{
+   my ($sex) = @_;
+
+   open (SAMPLE, ">$sample_g_name");
+   print SAMPLE "ID_1 ID_2 missing sex\n";
+
+   if ($sex_table{$sex} eq "female")
+   {
+      print SAMPLE "INDIV1 INDIV1 0.0 2\n";
+   }
+   elsif ($sex_table{$sex} eq "male")
+   {
+      print SAMPLE "INDIV1 INDIV1 0.0 1\n";
+   }
+   else
+   {
+      print SAMPLE "INDIV1 INDIV1 0.0 0\n";
+   }
+
+   close SAMPLE;
 }
 
 1;
