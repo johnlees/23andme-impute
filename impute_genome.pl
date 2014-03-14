@@ -9,15 +9,9 @@ use POSIX;
 
 use twentythree;
 
-# A wrapper script for the whole imputation
-# Should allow IMPUTE2 commands to be output as shell scripts, to stdout, or
-# actually run (with number of simult jobs specified)
-#
-# Use sub from file conversion to get into .gen format
-# Break up into 5Mb chunks, get length from .legend files
-# Use -phase to get .hap out
 # TODO: Later: then impute with pbwt to improve accuracy
 # Put back together into a nice format (either 23 and me or vcf)
+# (this could be done with pbwt)
 #
 # Final output:
 # Whole genome
@@ -175,7 +169,8 @@ else
          my $impute_command;
          if ($chr_name eq "X")
          {
-            $impute_command = "impute2 -chrX -m $ref_location$twentythree::map_prefix" . $chr_name . "$twentythree::map_suffix -h $ref_location$twentythree::haplotype_prefix" . $chr_name . "$twentythree::haplotype_suffix -l $ref_location$twentythree::legend_prefix" . $chr_name . "$twentythree::legend_suffix -g $output_prefix.chr$chr_name.gen -sample_g $twentythree::sample_g_name -int " . ($i-1)*5 . "e6 " . $i*5 . "e6 -Ne $twentythree::eff_pop -o $twentythree::impute2_prefix$chr_name.$i -phase -allow_large_regions";
+            my $ref_chr_name = $chr_name . "_nonPAR"; # used for map, haps and legend
+            $impute_command = "impute2 -chrX -m $ref_location$twentythree::map_prefix" . $ref_chr_name . "$twentythree::map_suffix -h $ref_location$twentythree::haplotype_prefix" . $ref_chr_name . "$twentythree::haplotype_suffix -l $ref_location$twentythree::legend_prefix" . $ref_chr_name . "$twentythree::legend_suffix -g $output_prefix.chr$chr_name.gen -sample_g $twentythree::sample_g_name -int " . ($i-1)*5 . "e6 " . $i*5 . "e6 -Ne $twentythree::eff_pop -o $twentythree::impute2_prefix$chr_name.$i -phase -allow_large_regions";
          }
          else
          {
@@ -196,6 +191,57 @@ else
    }
 
    # Output or print commands in requested format
+   if ($run)
+   {
+
+   }
+   elsif($write)
+   {
+      foreach my $chr_name (@chr_names)
+      {
+         my $shell_file = "$output_prefix.$twentythree::shell_prefix.$chr_name.$twentythree::shell_suffix";
+         open (COMMAND, ">$shell_file") || die ("FATAL: Could not write to $shell_file\n");
+
+         print COMMAND "#!/usr/bin/sh\n\n";
+         for (my $i = 1; $i<= $num_jobs{$chr_name}; $i++)
+         {
+            my $impute_command = shift(@impute_commands);
+            print COMMAND "$impute_command\n";
+         }
+         close COMMAND;
+      }
+
+      my $cat_shell_file = "$output_prefix.$twentythree::cat_shell_file_name";
+      open (CATSH, ">$cat_shell_file") || die ("FATAL: Could not write to $cat_shell_file");
+
+      print CATSH "#!/usr/bin/sh\n\n";
+      foreach my $cat_command (@cat_commands)
+      {
+         print CATSH "$cat_command\n";
+      }
+      foreach my $cat_hap_command (@cat_hap_commands)
+      {
+         print CATSH "$cat_hap_command\n";
+      }
+
+      close CATSH;
+   }
+   else
+   {
+      foreach my $impute_command (@impute_commands)
+      {
+         print "$impute_command\n";
+      }
+      print "\nRun once all analysis has finished:\n";
+      foreach my $cat_command (@cat_commands)
+      {
+         print "$cat_command\n";
+      }
+      foreach my $cat_hap_command (@cat_hap_commands)
+      {
+         print "$cat_hap_command\n";
+      }
+   }
 }
 
 exit(0);

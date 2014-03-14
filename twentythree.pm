@@ -25,6 +25,9 @@ our $map_suffix = "_combined_b37.txt";
 
 our $impute2_prefix = "tmp_impute2.chr";
 our $sample_g_name = "tmp_X.sample";
+our $shell_prefix = "commands";
+our $shell_suffix = ".sh";
+our $cat_shell_file_name = "post_analysis_commands.sh";
 
 our $chunk_length = 5000000;
 our $eff_pop = 20000;
