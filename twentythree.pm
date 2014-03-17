@@ -9,6 +9,8 @@ use warnings;
 use IO::Handle;
 STDOUT->autoflush(1);
 
+use threads;
+
 #
 # Globals
 #
@@ -26,7 +28,7 @@ our $map_suffix = "_combined_b37.txt";
 our $impute2_prefix = "tmp_impute2.chr";
 our $sample_g_name = "tmp_X.sample";
 our $shell_prefix = "commands";
-our $shell_suffix = ".sh";
+our $shell_suffix = "sh";
 our $cat_shell_file_name = "post_analysis_commands.sh";
 
 our $chunk_length = 5000000;
@@ -231,6 +233,50 @@ sub print_sample($)
    }
 
    close SAMPLE;
+}
+
+sub run_impute2($$)
+{
+   my ($impute2_commands, $threads) = @_;
+
+   my @impute_threads;
+
+   my $job = 0;
+   while (@{$$impute2_commands})
+   {
+      for (my $i = 1; $i <= $threads; $i++)
+      {
+         my $impute_command = shift(@{$$impute2_commands});
+         $impute_threads[$i] = threads->create(system($impute_command));
+      }
+
+      for (my $i = 1; $i <= $threads; $i++)
+      {
+         if ($impute_threads[$i]->join())
+         {
+            my $job_num = $job + $i;
+            print("!! Impute command $job_num failed !!\n");
+         }
+      }
+
+      $job += $threads;
+   }
+
+}
+
+sub run_cat($$)
+{
+   my ($cat_commands, $cat_hap_commands) = @_;
+
+   foreach my $cat_command (@{$$cat_commands})
+   {
+      system($cat_command) == 0 or die("Running $cat_command failed: $?\n");
+   }
+
+   foreach my $cat_hap_command (@{$$cat_hap_commands})
+   {
+      system($cat_hap_command) == 0 or die("Running $cat_hap_command failed: $?\n");
+   }
 }
 
 1;

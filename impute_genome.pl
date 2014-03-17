@@ -190,13 +190,30 @@ else
       push(@cat_hap_commands, $cat_hap_command);
    }
 
-   # Output or print commands in requested format
-   if ($run)
-   {
+   my $jobs = scalar(@impute_commands);
+   print("$jobs impute2 job commands created\n");
 
+   # Output or print commands in requested format
+   if ($run && $run > 1)
+   {
+      if ($run > 1)
+      {
+         my $jobs_per_thread = ceil($jobs/$run);
+         print("Running imputation with $run threads -- $jobs_per_thread jobs per thread\n\n");
+         twentythree::run_impute2(\@impute_commands, $run);
+      }
+      else
+      {
+         print("Running imputation with a single thread -- $jobs jobs\n\n");
+         twentythree::run_impute2(\@impute_commands, 1);
+      }
+
+      print("\nWriting final output\n");
+      run_cat(\@cat_commands, \@cat_hap_commands);
    }
    elsif($write)
    {
+      print("Writing jobs to shell scripts\n");
       foreach my $chr_name (@chr_names)
       {
          my $shell_file = "$output_prefix.$twentythree::shell_prefix.$chr_name.$twentythree::shell_suffix";
@@ -209,6 +226,7 @@ else
             print COMMAND "$impute_command\n";
          }
          close COMMAND;
+         chmod 0755, $shell_file;
       }
 
       my $cat_shell_file = "$output_prefix.$twentythree::cat_shell_file_name";
@@ -225,6 +243,7 @@ else
       }
 
       close CATSH;
+      chmod 0755, $cat_shell_file;
    }
    else
    {
@@ -243,5 +262,7 @@ else
       }
    }
 }
+
+print("\nDone.\n");
 
 exit(0);
