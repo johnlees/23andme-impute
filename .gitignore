@@ -5,3 +5,4 @@
 *.sh
 *_summary
 *_warnings
+tmp_impute2*
