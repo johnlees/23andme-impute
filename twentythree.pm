@@ -136,7 +136,7 @@ sub twentythree_to_gen($$$)
                {
                   close OUTPUT;
                }
-               my $outfile = $output_prefix . "chr$chromosome.gen";
+               my $outfile = $output_prefix . ".chr$chromosome.gen";
                open(OUTPUT, ">$outfile") || die ("Could not open $outfile for writing\n");
 
             }
