@@ -197,6 +197,7 @@ sub print_sample($)
 
    open (SAMPLE, ">$sample_g_name");
    print SAMPLE "ID_1 ID_2 missing sex\n";
+   print SAMPLE "0 0 0 D\n";
 
    if ($sex_table{$sex} eq "female")
    {
