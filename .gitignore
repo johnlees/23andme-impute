@@ -3,3 +3,5 @@
 *.haps
 *.sample
 *.sh
+*_summary
+*_warnings
