@@ -117,6 +117,44 @@ else
    # impute here
    my %num_jobs;
    my @chr_names;
+
+   if (defined($sex))
+   {
+      if ($sex eq "male" || $sex eq "m")
+      {
+         $sex = 0;
+      }
+      elsif ($sex eq "female" || $sex eq "f")
+      {
+         $sex = 1;
+      }
+   }
+   if (!defined($sex) || ($sex ne "0" && $sex ne "1"))
+   {
+         $sex = 2;
+   }
+
+   my $impute_option;
+   if (defined($write))
+   {
+      $impute_option = "write";
+   }
+   elsif (defined($run))
+   {
+      $impute_option = "run";
+   }
+   else
+   {
+      $impute_option = "print";
+   }
+
+   print "Inputs:\n";
+   print "\t Input file:     $input_file\n";
+   print "\t Output prefix:  $output_prefix\n";
+   print "\t Impute option:  $impute_option\n";
+   print "\t Sex:            $twentythree::sex_table{$sex}\n";
+   print "\t Reference:      $ref_location\n\n";
+
    $sex = twentythree::format_convert($input_file, $output_prefix, $sex);
 
    if (!defined($ref_location))
